@@ -1,24 +1,100 @@
 {% extends "base.html" %}
+{% block title %}Book Session — TutorConnect{% endblock %}
 {% block content %}
-<h2>Request Session with {{ tutor.first_name }} {{ tutor.last_name }}</h2>
-<form method="post" class="card">
-  <label>Date & time <input type="datetime-local" name="session_time" required></label>
-  <label>Duration (minutes) <input type="number" min="30" step="30" name="duration" required></label>
-  <label>Subject
-    <select name="subject_id" required>
-      {% for sub in subjects %}
-      <option value="{{ sub.subject_id }}">{{ sub.subject_name }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <button type="submit">Send Request</button>
-</form>
-<section class="card">
-  <h3>Tutor Availability</h3>
-  {% for slot in availability %}
-  <p>{{ slot.day_of_week }}: {{ fmt_time(slot.start_time) }} - {{ fmt_time(slot.end_time) }}</p>
-  {% else %}
-  <p>No availability slots set. Tutor can still manually accept requests.</p>
-  {% endfor %}
-</section>
+<div class="page">
+
+  <div class="page-header">
+    <h2>Request a Session</h2>
+    <p>with <strong>{{ tutor.first_name }} {{ tutor.last_name }}</strong></p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 280px;gap:1.5rem;align-items:start;">
+
+    <div class="form-card" style="max-width:100%;">
+      <form method="post">
+        <div class="form-group">
+          <label for="subject_id">Subject</label>
+          {% if subjects %}
+          <select id="subject_id" name="subject_id" required>
+            <option value="">Select a subject…</option>
+            {% for sub in subjects %}
+            <option value="{{ sub.subject_id }}">{{ sub.subject_name }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
+          <p style="color:var(--red);font-size:.9rem;">This tutor has not set any subjects yet.</p>
+          {% endif %}
+        </div>
+        <div class="form-group">
+          <label for="session_time">Date &amp; Time</label>
+          <input type="datetime-local" id="session_time" name="session_time" required>
+        </div>
+        <div class="form-group">
+          <label for="duration">Duration (minutes)</label>
+          <select id="duration" name="duration" required>
+            <option value="30">30 minutes</option>
+            <option value="60" selected>60 minutes</option>
+            <option value="90">90 minutes</option>
+            <option value="120">120 minutes</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-full btn-lg" type="submit" {% if not subjects %}disabled{% endif %}>
+          Send Request
+        </button>
+      </form>
+    </div>
+
+    <!-- Sidebar -->
+    <div>
+
+      <!-- Availability slots -->
+      <div class="card" style="margin-bottom:.75rem;">
+        <h3 style="font-size:1rem;margin-bottom:.75rem;">Availability</h3>
+        {% if availability %}
+        <div class="avail-slots">
+          {% for slot in availability %}
+          <div class="avail-slot">
+            <span class="avail-day">{{ slot.day_of_week }}</span>
+            <span class="avail-time">
+              {{ fmt_time(slot.start_time) }} – {{ fmt_time(slot.end_time) }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p style="font-size:.85rem;color:var(--muted);">No fixed slots — tutor reviews all requests manually.</p>
+        {% endif %}
+      </div>
+
+      <!-- Already booked times -->
+      {% if booked_sessions %}
+      <div class="card">
+        <h3 style="font-size:1rem;margin-bottom:.4rem;">
+          Already booked
+        </h3>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:.65rem;">
+          These times are taken. Pick a different slot.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:.4rem;">
+          {% for s in booked_sessions %}
+          <div style="display:flex;align-items:center;justify-content:space-between;
+                      background:#fff5f5;border:1px solid #fdd;border-radius:6px;
+                      padding:.45rem .7rem;font-size:.82rem;gap:.5rem;">
+            <div>
+              <div style="font-weight:600;color:#b03030;">
+                {{ fmt_datetime(s.session_time) }}
+              </div>
+              <div style="color:var(--muted);">Duration: {{ s.duration }} min</div>
+            </div>
+            <span class="status status-{{ s.status }}">{{ s.status }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div><!-- /sidebar -->
+
+  </div>
+</div>
 {% endblock %}

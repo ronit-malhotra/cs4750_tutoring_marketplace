@@ -56,6 +56,8 @@ def parse_session_datetime(value):
 
 
 def is_within_availability(conn, tutor_id, requested_dt):
+    """Return True if requested_dt falls within any of the tutor's availability slots.
+    Returns True unconditionally when the tutor has set no slots at all."""
     slots = conn.execute(
         "SELECT day_of_week, start_time, end_time FROM Availability WHERE tutor_id = %s",
         (tutor_id,),
@@ -65,13 +67,32 @@ def is_within_availability(conn, tutor_id, requested_dt):
     day_name     = DAY_NAMES[requested_dt.weekday()]
     request_time = requested_dt.strftime("%H:%M:%S")
     for slot in slots:
-        # TIME columns come back as timedelta in PyMySQL — convert to HH:MM:SS string
         start = str(slot["start_time"]) if not isinstance(slot["start_time"], str) else slot["start_time"]
         end   = str(slot["end_time"])   if not isinstance(slot["end_time"],   str) else slot["end_time"]
-        # timedelta str is like "10:00:00"
         if slot["day_of_week"] == day_name and start <= request_time <= end:
             return True
     return False
+
+
+def is_tutor_booked(conn, tutor_id, requested_dt, duration_minutes):
+    """Return True if the tutor already has an accepted session near requested_dt."""
+    requested_end = requested_dt.replace(
+        hour=requested_dt.hour,
+        minute=requested_dt.minute + duration_minutes % 60,
+        second=0,
+    )
+    # Simpler: just check whether any active session starts within ±duration window
+    conflict = conn.execute(
+        """
+        SELECT 1 FROM TutoringSession
+        WHERE tutor_id = %s
+          AND status = 'accepted'
+          AND ABS(TIMESTAMPDIFF(MINUTE, session_time, %s)) < %s
+        LIMIT 1
+        """,
+        (tutor_id, requested_dt.strftime("%Y-%m-%d %H:%M:%S"), duration_minutes),
+    ).fetchone()
+    return conflict is not None
 
 
 def render_stars(rating):
@@ -90,9 +111,7 @@ def format_time_value(value):
         hours = (total_seconds // 3600) % 24
         minutes = (total_seconds % 3600) // 60
         period = "AM" if hours < 12 else "PM"
-        display_hour = hours % 12
-        if display_hour == 0:
-            display_hour = 12
+        display_hour = hours % 12 or 12
         return f"{display_hour}:{minutes:02d} {period}"
     if hasattr(value, "strftime"):
         return value.strftime("%I:%M %p").lstrip("0")
@@ -315,8 +334,23 @@ def book_session(tutor_id):
             (tutor_id,),
         ).fetchall()
 
+    # Fetch already-booked upcoming sessions so the template can show them
+    with managed_connection() as conn:
+        booked_sessions = conn.execute(
+            """
+            SELECT session_time, duration, status
+            FROM TutoringSession
+            WHERE tutor_id = %s
+              AND status = 'accepted'
+              AND session_time >= NOW()
+            ORDER BY session_time ASC
+            """,
+            (tutor_id,),
+        ).fetchall()
+
     if request.method == "POST":
-        requested_dt = parse_session_datetime(request.form["session_time"])
+        requested_dt  = parse_session_datetime(request.form["session_time"])
+        duration_mins = int(request.form.get("duration", 60))
         if not requested_dt:
             flash("Invalid date/time format.")
             return redirect(url_for("book_session", tutor_id=tutor_id))
@@ -331,8 +365,12 @@ def book_session(tutor_id):
             ).fetchone():
                 flash("Tutor does not teach that subject.")
                 return redirect(url_for("book_session", tutor_id=tutor_id))
+            # Check busy FIRST — gives a more accurate message than "outside availability"
+            if is_tutor_booked(conn, tutor_id, requested_dt, duration_mins):
+                flash("The tutor is already booked at that time. Please choose a different slot.")
+                return redirect(url_for("book_session", tutor_id=tutor_id))
             if not is_within_availability(conn, tutor_id, requested_dt):
-                flash("Requested time is outside tutor availability.")
+                flash("That time is outside this tutor's available hours. Check their availability below.")
                 return redirect(url_for("book_session", tutor_id=tutor_id))
             conn.execute(
                 """
@@ -340,14 +378,15 @@ def book_session(tutor_id):
                     (session_time, duration, status, tutor_id, student_id, subject_id)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (request.form["session_time"], int(request.form["duration"]),
+                (request.form["session_time"], duration_mins,
                  "requested", tutor_id, session["user_id"], subject_id),
             )
         flash("Session request sent!")
         return redirect(url_for("student_dashboard"))
 
     return render_template("book_session.html", tutor=tutor, tutor_id=tutor_id,
-                           subjects=subjects, availability=availability)
+                           subjects=subjects, availability=availability,
+                           booked_sessions=booked_sessions)
 
 
 @app.route("/student/dashboard", methods=["GET", "POST"])
@@ -484,6 +523,11 @@ def tutor_profile():
 
     if request.method == "POST":
         selected_subjects = request.form.getlist("subject_ids")
+        day          = request.form.get("day_of_week")
+        start        = request.form.get("start_time")
+        end          = request.form.get("end_time")
+        remove_day   = request.form.get("remove_day_of_week")
+        remove_start = request.form.get("remove_start_time")
         pic_url      = request.form.get("profile_picture_url", "").strip()
 
         with managed_connection() as conn:
@@ -496,6 +540,23 @@ def tutor_profile():
                 conn.execute(
                     "INSERT INTO Teaches(tutor_id, subject_id) VALUES (%s, %s)",
                     (uid, int(sid)),
+                )
+            if day and start and end:
+                if start >= end:
+                    flash("Start time must be before end time.")
+                    return redirect(url_for("tutor_profile"))
+                conn.execute(
+                    """
+                    INSERT INTO Availability(tutor_id, day_of_week, start_time, end_time)
+                    VALUES (%s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE end_time = VALUES(end_time)
+                    """,
+                    (uid, day, start, end),
+                )
+            if remove_day and remove_start:
+                conn.execute(
+                    "DELETE FROM Availability WHERE tutor_id = %s AND day_of_week = %s AND start_time = %s",
+                    (uid, remove_day, remove_start),
                 )
         flash("Profile updated.")
         return redirect(url_for("tutor_profile"))
@@ -517,6 +578,7 @@ def add_availability_slot():
     day = request.form.get("day_of_week", "")
     start = request.form.get("start_time", "")
     end = request.form.get("end_time", "")
+
     if day not in DAY_NAMES or not start or not end:
         flash("Please provide day, start time, and end time.")
         return redirect(url_for("tutor_profile"))
@@ -545,6 +607,7 @@ def remove_availability_slot():
     if day not in DAY_NAMES or not start:
         flash("Invalid availability slot selected.")
         return redirect(url_for("tutor_profile"))
+
     with managed_connection() as conn:
         conn.execute(
             "DELETE FROM Availability WHERE tutor_id = %s AND day_of_week = %s AND start_time = %s",
@@ -593,13 +656,28 @@ def tutor_dashboard():
             ORDER BY ts.session_time DESC
             """, (session["user_id"],),
         ).fetchall()
+        # Upcoming only — for the schedule panel
+        upcoming = conn.execute(
+            """
+            SELECT ts.session_id, ts.session_time, ts.duration, ts.status,
+                   u.first_name, u.last_name, s.subject_name
+            FROM TutoringSession ts
+            JOIN Users u ON u.user_id = ts.student_id
+            JOIN Subject s ON s.subject_id = ts.subject_id
+            WHERE ts.tutor_id = %s
+              AND ts.status IN ('requested', 'accepted')
+              AND ts.session_time >= NOW()
+            ORDER BY ts.session_time ASC
+            """, (session["user_id"],),
+        ).fetchall()
         notifications = conn.execute(
             "SELECT * FROM Notification WHERE user_id = %s ORDER BY created_at DESC LIMIT 20",
             (session["user_id"],),
         ).fetchall()
 
     return render_template("tutor_dashboard.html",
-                           sessions=sessions, notifications=notifications)
+                           sessions=sessions, upcoming=upcoming,
+                           notifications=notifications)
 
 
 @app.post("/tutor/notification/read-all")
@@ -655,23 +733,57 @@ def admin_dashboard():
     if request.method == "POST":
         action    = request.form["action"]
         target_id = int(request.form["target_id"])
+        action_success = False
+        target_type = "unknown"
+        feedback_message = "Action completed."
         with managed_connection() as conn:
             if action == "delete_review":
                 conn.execute("DELETE FROM Review WHERE review_id = %s", (target_id,))
                 target_type = "Review"
+                action_success = True
             elif action == "delete_user":
-                conn.execute("DELETE FROM Users WHERE user_id = %s", (target_id,))
                 target_type = "User"
+                user_row = conn.execute(
+                    "SELECT role FROM Users WHERE user_id = %s",
+                    (target_id,),
+                ).fetchone()
+                if not user_row:
+                    feedback_message = "User not found."
+                elif user_row["role"] == "admin":
+                    feedback_message = "Admin users cannot be deleted."
+                else:
+                    # Remove RESTRICT-linked rows before deleting the user.
+                    conn.execute("DELETE FROM Notification WHERE user_id = %s", (target_id,))
+                    conn.execute("DELETE FROM Review WHERE reviewer_id = %s", (target_id,))
+                    conn.execute(
+                        "DELETE FROM TutoringSession WHERE tutor_id = %s OR student_id = %s",
+                        (target_id, target_id),
+                    )
+                    conn.execute("DELETE FROM SessionExport WHERE tutor_id = %s", (target_id,))
+                    conn.execute("DELETE FROM Availability WHERE tutor_id = %s", (target_id,))
+                    conn.execute("DELETE FROM Teaches WHERE tutor_id = %s", (target_id,))
+                    conn.execute("DELETE FROM TutorProfile WHERE tutor_id = %s", (target_id,))
+                    conn.execute("DELETE FROM Users WHERE user_id = %s", (target_id,))
+                    action_success = True
             elif action == "delete_subject":
-                conn.execute("DELETE FROM Subject WHERE subject_id = %s", (target_id,))
                 target_type = "Subject"
+                in_use = conn.execute(
+                    "SELECT COUNT(*) AS c FROM TutoringSession WHERE subject_id = %s",
+                    (target_id,),
+                ).fetchone()
+                if in_use and in_use["c"] > 0:
+                    feedback_message = "Cannot delete subject with existing sessions."
+                else:
+                    conn.execute("DELETE FROM Subject WHERE subject_id = %s", (target_id,))
+                    action_success = True
             else:
-                target_type = "unknown"
+                feedback_message = "Unknown action."
+
             conn.execute(
                 "INSERT INTO AdminLog(action_type, target_type, target_id, admin_id) VALUES (%s, %s, %s, %s)",
-                (action, target_type, target_id, session["user_id"]),
+                ((action if action_success else f"{action}_blocked"), target_type, target_id, session["user_id"]),
             )
-        flash("Action completed.")
+        flash("Action completed." if action_success else feedback_message)
 
     with managed_connection() as conn:
         users = conn.execute(
@@ -745,5 +857,6 @@ def import_subjects():
 
 
 if __name__ == "__main__":
-    bootstrap_database()
+    if os.environ.get("RUN_DB_BOOTSTRAP") == "true":
+        bootstrap_database()
     app.run(debug=True)

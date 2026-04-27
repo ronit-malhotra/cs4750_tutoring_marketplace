@@ -612,3 +612,64 @@ legend {
   .session-card { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── Schedule Card (tutor upcoming sessions grid) ────────────────────────── */
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: .75rem;
+  margin-bottom: 2rem;
+}
+
+.schedule-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem 1rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.schedule-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+/* Left accent stripe — color set via modifier classes below */
+.schedule-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+  background: var(--accent);           /* default: pending/requested = amber */
+}
+
+.schedule-card.accepted::before  { background: var(--green); }
+.schedule-card.accepted          { border-color: #b6e2ce; }
+
+.schedule-card.requested::before { background: var(--accent); }
+.schedule-card.requested         { border-color: #f5dfa8; }
+
+.schedule-card-subject {
+  font-weight: 700;
+  font-size: .95rem;
+  color: var(--navy);
+  margin-bottom: .2rem;
+}
+
+.schedule-card-student {
+  font-size: .85rem;
+  color: var(--text-sm);
+  margin-bottom: .55rem;
+}
+
+.schedule-card-meta {
+  font-size: .82rem;
+  color: var(--text-sm);
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  margin-bottom: .6rem;
+}
+
+.schedule-card-meta span { display: flex; align-items: center; gap: .3rem; }

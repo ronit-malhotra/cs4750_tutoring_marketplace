@@ -34,8 +34,51 @@
     </div>
   </div>
 
+  {# ── Upcoming Schedule Panel ──────────────────────────────────────────────── #}
+  {% if upcoming %}
+  <div class="section-header" style="margin-bottom:.75rem;">
+    <h3>Upcoming Schedule</h3>
+    <span style="font-size:.82rem;color:var(--muted);">{{ upcoming | length }} session{{ 's' if upcoming|length != 1 }}</span>
+  </div>
+
+  <div class="schedule-grid">
+    {% for s in upcoming %}
+    <div class="schedule-card {{ s.status }}">
+      <div class="schedule-card-subject">{{ s.subject_name }}</div>
+      <div class="schedule-card-student">with {{ s.first_name }} {{ s.last_name }}</div>
+      <div class="schedule-card-meta">
+        <span>
+          📅
+          {% if s.session_time.__class__.__name__ == 'datetime' %}
+            {{ s.session_time.strftime('%a, %b %-d') }}
+          {% else %}
+            {{ s.session_time[:10] }}
+          {% endif %}
+        </span>
+        <span>
+          🕐
+          {% if s.session_time.__class__.__name__ == 'datetime' %}
+            {{ s.session_time.strftime('%H:%M') }}
+          {% else %}
+            {{ s.session_time[11:16] }}
+          {% endif %}
+          · {{ s.duration }} min
+        </span>
+      </div>
+      <span class="status status-{{ s.status }}">{{ s.status }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state card" style="margin-bottom:1.5rem;">
+    <div class="empty-icon">📅</div>
+    <p>No upcoming sessions. Students will appear here once they book.</p>
+  </div>
+  {% endif %}
+
+  {# ── All Sessions ─────────────────────────────────────────────────────────── #}
   <div class="section-header">
-    <h3>Sessions</h3>
+    <h3>All Sessions</h3>
     <div class="btn-group">
       <a href="{{ url_for('tutor_profile') }}" class="btn btn-ghost btn-sm">Edit profile</a>
       <a href="{{ url_for('export_sessions') }}" class="btn btn-accent btn-sm">Export CSV</a>
@@ -48,7 +91,13 @@
       <div class="session-meta">
         <div class="session-title">{{ s.subject_name }} with {{ s.first_name }} {{ s.last_name }}</div>
         <div class="session-detail">
-          🗓 {{ fmt_datetime(s.session_time) }} &nbsp;·&nbsp; ⏱ {{ s.duration }} min
+          🗓
+          {% if s.session_time.__class__.__name__ == 'datetime' %}
+            {{ s.session_time.strftime('%Y-%m-%d %H:%M') }}
+          {% else %}
+            {{ s.session_time[:16] if s.session_time else 'TBD' }}
+          {% endif %}
+          &nbsp;·&nbsp; ⏱ {{ s.duration }} min
         </div>
         <div style="margin-top:.35rem;">
           <span class="status status-{{ s.status }}">{{ s.status }}</span>
@@ -78,12 +127,13 @@
     </div>
   {% endif %}
 
-  {# Notifications (reviews + cancellations) #}
+  {# ── Notifications ────────────────────────────────────────────────────────── #}
   <div class="divider"></div>
   <div class="section-header">
     <h3>Notifications
       {% if unread > 0 %}
-      <span style="background:var(--blue);color:#fff;font-size:.7rem;padding:2px 7px;border-radius:99px;margin-left:.5rem;font-family:'DM Sans',sans-serif;">{{ unread }}</span>
+      <span style="background:var(--blue);color:#fff;font-size:.7rem;padding:2px 7px;
+                   border-radius:99px;margin-left:.5rem;font-family:'DM Sans',sans-serif;">{{ unread }}</span>
       {% endif %}
     </h3>
     {% if unread > 0 %}
@@ -99,7 +149,7 @@
       <div class="notif-dot {{ '' if not n.is_read else 'read' }}"></div>
       <div class="notif-body">
         <div>{{ n.message }}</div>
-        <div class="notif-time">{{ fmt_datetime(n.created_at) }}</div>
+        <div class="notif-time">{{ n.created_at }}</div>
       </div>
     </div>
     {% endfor %}
