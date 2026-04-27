@@ -4,21 +4,38 @@ import pymysql.cursors
 from contextlib import contextmanager
 from werkzeug.security import generate_password_hash
 
-DB_CONFIG = {
-    "host":        os.environ.get("DB_HOST",     "127.0.0.1"),
-    "port":        int(os.environ.get("DB_PORT", "3306")),
-    "user":        os.environ.get("DB_USER",     "tutoring_app_user"),
-    "password":    os.environ.get("DB_PASSWORD", ""),
-    "database":    os.environ.get("DB_NAME",     "tutoring_db"),
-    "cursorclass": pymysql.cursors.DictCursor,
-    "charset":     "utf8mb4",
-    "autocommit":  False,
-}
+_DB_USER     = os.environ.get("DB_USER",     "tutoring_app_user")
+_DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
+_DB_NAME     = os.environ.get("DB_NAME",     "tutoring_db")
+# Set CLOUD_SQL_CONNECTION_NAME (e.g. "project:region:instance") to use the
+# Cloud SQL connector; leave unset for plain TCP (local dev).
+_CLOUD_SQL_CONNECTION_NAME = os.environ.get("CLOUD_SQL_CONNECTION_NAME", "")
 
 
 def get_connection():
-    """Return a raw PyMySQL connection."""
-    return pymysql.connect(**DB_CONFIG)
+    if _CLOUD_SQL_CONNECTION_NAME:
+        from google.cloud.sql.connector import Connector
+        connector = Connector()
+        return connector.connect(
+            _CLOUD_SQL_CONNECTION_NAME,
+            "pymysql",
+            user=_DB_USER,
+            password=_DB_PASSWORD,
+            db=_DB_NAME,
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor,
+            autocommit=False,
+        )
+    return pymysql.connect(
+        host=os.environ.get("DB_HOST", "127.0.0.1"),
+        port=int(os.environ.get("DB_PORT", "3306")),
+        user=_DB_USER,
+        password=_DB_PASSWORD,
+        database=_DB_NAME,
+        cursorclass=pymysql.cursors.DictCursor,
+        charset="utf8mb4",
+        autocommit=False,
+    )
 
 
 @contextmanager
