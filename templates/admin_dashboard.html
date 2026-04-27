@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — TutorConnect{% endblock %}
+{% block content %}
+<div class="page">
+
+  <div class="page-header">
+    <h2>Admin Dashboard</h2>
+    <p>Manage users, subjects, reviews, and view the audit log.</p>
+  </div>
+
+  <!-- Subjects (NEW management section) -->
+  <div class="admin-section">
+    <h3>Subjects <span style="font-size:.85rem;font-weight:400;color:var(--muted);">({{ subjects|length }} total)</span></h3>
+
+    <!-- Add subject inline -->
+    <div class="card" style="max-width:480px;margin-bottom:.75rem;">
+      <form method="post" action="{{ url_for('add_subject') }}"
+            style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="margin-bottom:0;flex:1;min-width:180px;">
+          <label>Add new subject</label>
+          <input type="text" name="subject_name" placeholder="e.g. Organic Chemistry" required>
+        </div>
+        <button class="btn btn-primary" type="submit">Add</button>
+      </form>
+    </div>
+
+    <!-- Import via CSV -->
+    <div class="card" style="max-width:480px;margin-bottom:.75rem;">
+      <p style="font-size:.85rem;color:var(--text-sm);margin-bottom:.6rem;">
+        Or bulk-import from a CSV with a <code>subject_name</code> column:
+      </p>
+      <form method="post" action="{{ url_for('import_subjects') }}" enctype="multipart/form-data"
+            style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+        <input type="file" name="csv_file" accept=".csv" required style="font-size:.85rem;flex:1;min-width:180px;">
+        <button class="btn btn-ghost" type="submit">Import CSV</button>
+      </form>
+    </div>
+
+    <!-- Subject table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Subject Name</th><th>Tutors</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          {% for s in subjects %}
+          <tr>
+            <td style="color:var(--muted);font-size:.85rem;">{{ s.subject_id }}</td>
+            <td><strong>{{ s.subject_name }}</strong></td>
+            <td style="color:var(--text-sm);">{{ s.tutor_count }}</td>
+            <td>
+              <form method="post" style="display:inline;">
+                <input type="hidden" name="action"    value="delete_subject">
+                <input type="hidden" name="target_id" value="{{ s.subject_id }}">
+                <button class="btn btn-danger btn-sm" type="submit"
+                  onclick="return confirm('Delete subject \'{{ s.subject_name }}\'? This will also remove it from all tutors.')">
+                  Delete
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem;">No subjects yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="admin-section">
+    <h3>Users <span style="font-size:.85rem;font-weight:400;color:var(--muted);">({{ users|length }} total)</span></h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td style="color:var(--muted);font-size:.85rem;">{{ u.user_id }}</td>
+            <td><strong>{{ u.first_name }} {{ u.last_name }}</strong></td>
+            <td style="color:var(--text-sm);font-size:.88rem;">{{ u.email }}</td>
+            <td><span class="role-badge {{ u.role }}">{{ u.role }}</span></td>
+            <td>
+              {% if u.role != 'admin' %}
+              <form method="post" style="display:inline;">
+                <input type="hidden" name="action"    value="delete_user">
+                <input type="hidden" name="target_id" value="{{ u.user_id }}">
+                <button class="btn btn-danger btn-sm" type="submit"
+                  onclick="return confirm('Permanently delete this user and all their data?')">Delete</button>
+              </form>
+              {% else %}
+              <span style="font-size:.8rem;color:var(--muted);">Protected</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem;">No users found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Reviews -->
+  <div class="admin-section">
+    <h3>Reviews <span style="font-size:.85rem;font-weight:400;color:var(--muted);">({{ reviews|length }} total)</span></h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Session</th><th>Rating</th><th>Comment</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          {% for r in reviews %}
+          <tr>
+            <td style="color:var(--muted);font-size:.85rem;">{{ r.review_id }}</td>
+            <td>Session #{{ r.session_id }}</td>
+            <td><span class="stars" style="font-size:.9rem;">{{ render_stars(r.rating) }}</span></td>
+            <td style="font-size:.88rem;max-width:260px;">{{ (r.comment or '')[:80] }}{% if r.comment and r.comment|length > 80 %}…{% endif %}</td>
+            <td>
+              <form method="post" style="display:inline;">
+                <input type="hidden" name="action"    value="delete_review">
+                <input type="hidden" name="target_id" value="{{ r.review_id }}">
+                <button class="btn btn-danger btn-sm" type="submit"
+                  onclick="return confirm('Delete this review?')">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem;">No reviews found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Audit Log -->
+  <div class="admin-section">
+    <h3>Admin Audit Log <span style="font-size:.85rem;font-weight:400;color:var(--muted);">(last 20)</span></h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Time</th><th>Action</th><th>Target type</th><th>Target #</th><th>Admin #</th></tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td style="font-size:.85rem;color:var(--muted);white-space:nowrap;">{{ log.action_time }}</td>
+            <td><code style="font-size:.82rem;background:var(--bg);padding:2px 6px;border-radius:4px;">{{ log.action_type }}</code></td>
+            <td>{{ log.target_type }}</td>
+            <td style="color:var(--muted);">#{{ log.target_id }}</td>
+            <td style="color:var(--muted);">#{{ log.admin_id }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem;">No admin actions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

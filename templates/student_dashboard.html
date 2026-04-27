@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}My Dashboard — TutorConnect{% endblock %}
+{% block content %}
+<div class="page">
+
+  <div class="page-header">
+    <h2>Welcome back, {{ session.get('name').split()[0] }} 👋</h2>
+    <p>Track your tutoring sessions, notifications, and reviews.</p>
+  </div>
+
+  {# Stats #}
+  {% set total     = sessions | length %}
+  {% set upcoming  = sessions | selectattr('status', 'in', ['requested','accepted']) | list | length %}
+  {% set completed = sessions | selectattr('status', 'equalto', 'completed') | list | length %}
+  {% set unread    = notifications | rejectattr('is_read') | list | length %}
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-value">{{ total }}</div>
+      <div class="stat-label">Total sessions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ upcoming }}</div>
+      <div class="stat-label">Upcoming</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ completed }}</div>
+      <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ my_reviews | length }}</div>
+      <div class="stat-label">Reviews written</div>
+    </div>
+  </div>
+
+  {# Sessions #}
+  <div class="section-header">
+    <h3>My Sessions</h3>
+    <a href="{{ url_for('search_tutors') }}" class="btn btn-primary btn-sm">+ Book a tutor</a>
+  </div>
+
+  {% if sessions %}
+    {% for s in sessions %}
+    <div class="session-card">
+      <div class="session-meta">
+        <div class="session-title">
+          {{ s.subject_name }} with
+          <a href="{{ url_for('tutor_public_profile', tutor_id=s.tutor_id) }}">
+            {{ s.first_name }} {{ s.last_name }}
+          </a>
+        </div>
+        <div class="session-detail">
+          🗓 {{ fmt_datetime(s.session_time) }} &nbsp;·&nbsp; ⏱ {{ s.duration }} min
+        </div>
+        <div style="margin-top:.35rem;">
+          <span class="status status-{{ s.status }}">{{ s.status }}</span>
+        </div>
+      </div>
+      <div class="btn-group">
+        {% if s.status in ['requested', 'accepted'] %}
+        <form method="post" style="display:inline;">
+          <input type="hidden" name="session_id" value="{{ s.session_id }}">
+          <button class="btn btn-danger btn-sm" type="submit"
+            onclick="return confirm('Cancel this session?')">Cancel</button>
+        </form>
+        {% endif %}
+        {% if s.status == 'completed' and not s.has_review %}
+        <a href="{{ url_for('review', session_id=s.session_id) }}" class="btn btn-accent btn-sm">Leave review</a>
+        {% elif s.status == 'completed' and s.has_review %}
+        <span style="font-size:.8rem;color:var(--muted);">Reviewed ✓</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state card">
+      <div class="empty-icon">📭</div>
+      <p>No sessions yet. <a href="{{ url_for('search_tutors') }}">Find a tutor</a> to get started.</p>
+    </div>
+  {% endif %}
+
+  {# Notifications #}
+  <div class="divider"></div>
+  <div class="section-header">
+    <h3>Notifications
+      {% if unread > 0 %}
+      <span style="background:var(--blue);color:#fff;font-size:.7rem;padding:2px 7px;border-radius:99px;margin-left:.5rem;font-family:'DM Sans',sans-serif;">{{ unread }}</span>
+      {% endif %}
+    </h3>
+    {% if unread > 0 %}
+    <form method="post" action="{{ url_for('mark_all_notifications_read') }}">
+      <button class="btn btn-ghost btn-sm" type="submit">Mark all read</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if notifications %}
+    {% for n in notifications %}
+    <div class="notif {{ 'unread' if not n.is_read else '' }}">
+      <div class="notif-dot {{ '' if not n.is_read else 'read' }}"></div>
+      <div class="notif-body">
+        <div>{{ n.message }}</div>
+        <div class="notif-time">{{ fmt_datetime(n.created_at) }}</div>
+      </div>
+      {% if not n.is_read %}
+      <form method="post" action="{{ url_for('mark_notification_read', notification_id=n.notification_id) }}">
+        <button class="btn btn-ghost btn-sm" type="submit">Mark read</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">🔕</div>
+      <p>You're all caught up — no notifications.</p>
+    </div>
+  {% endif %}
+
+  {# My Reviews #}
+  <div class="divider"></div>
+  <div class="section-header">
+    <h3>My Reviews</h3>
+  </div>
+
+  {% if my_reviews %}
+    {% for r in my_reviews %}
+    <div class="card" style="margin-bottom:.75rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+        <div>
+          <div style="font-weight:700;">{{ r.subject_name }} with {{ r.tutor_first }} {{ r.tutor_last }}</div>
+          <div style="font-size:.82rem;color:var(--muted);">{{ fmt_datetime(r.session_time) }}</div>
+        </div>
+        <span class="stars" style="font-size:1rem;">{{ render_stars(r.rating) }}</span>
+      </div>
+      {% if r.comment %}
+      <p style="margin-top:.5rem;font-size:.9rem;color:var(--text-sm);line-height:1.6;">{{ r.comment }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">✏️</div>
+      <p>No reviews written yet. Complete a session to leave feedback.</p>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

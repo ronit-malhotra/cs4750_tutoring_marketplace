@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Edit Profile — TutorConnect{% endblock %}
+{% block content %}
+<div class="page">
+
+  <div class="page-header">
+    <h2>My Tutor Profile</h2>
+    <p>Update your bio, rate, photo, subjects, and availability.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;">
+
+    <!-- Left column -->
+    <div>
+      <form method="post">
+        <div class="card" style="margin-bottom:1rem;">
+          <h3 style="margin-bottom:1rem;font-size:1.1rem;">Basic Info</h3>
+
+          <!-- Profile picture URL (NEW) -->
+          <div class="form-group">
+            <label for="profile_picture_url">Profile Photo URL <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+            <input type="url" id="profile_picture_url" name="profile_picture_url"
+              placeholder="https://example.com/photo.jpg"
+              value="{{ profile.profile_picture_url or '' }}">
+          </div>
+          {% if profile.profile_picture_url %}
+          <div style="margin-bottom:.75rem;">
+            <img src="{{ profile.profile_picture_url }}" alt="Profile photo"
+                 style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
+          </div>
+          {% endif %}
+
+          <div class="form-group">
+            <label for="bio">Bio</label>
+            <textarea id="bio" name="bio" rows="4"
+              placeholder="Tell students about your background, teaching style, and experience…">{{ profile.bio or '' }}</textarea>
+          </div>
+          <div class="form-group">
+            <label for="hourly_rate">Hourly Rate ($)</label>
+            <input type="number" id="hourly_rate" name="hourly_rate"
+              min="1" step="0.50" value="{{ profile.hourly_rate }}" required>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:.75rem;font-size:1.1rem;">Subjects I Teach</h3>
+          <div class="checkbox-grid">
+            {% for subject in all_subjects %}
+            <label class="checkbox-label">
+              <input type="checkbox" name="subject_ids" value="{{ subject.subject_id }}"
+                {% if subject.subject_id in taught %}checked{% endif %}>
+              {{ subject.subject_name }}
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        <div style="margin-top:1.5rem;display:flex;gap:1rem;align-items:center;">
+          <button class="btn btn-primary btn-lg" type="submit">Save Profile</button>
+          <a href="{{ url_for('tutor_public_profile', tutor_id=session.user_id) }}" class="btn btn-ghost">
+            Preview public profile →
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Right column -->
+    <div>
+      <form method="post" action="{{ url_for('add_availability_slot') }}" class="card" style="margin-bottom:1rem;">
+          <h3 style="margin-bottom:.75rem;font-size:1.1rem;">Add Availability Slot</h3>
+          <div class="form-group">
+            <label>Day of Week</label>
+            <select name="day_of_week">
+              <option value="">— Select day —</option>
+              {% for day in day_names %}
+              <option value="{{ day }}">{{ day }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Start time</label>
+              <input type="time" name="start_time">
+            </div>
+            <div class="form-group">
+              <label>End time</label>
+              <input type="time" name="end_time">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" type="submit">Add Slot</button>
+      </form>
+
+        <div class="card">
+          <h3 style="margin-bottom:.75rem;font-size:1.1rem;">Current Availability</h3>
+          {% if availability %}
+          <div class="avail-slots" style="margin-bottom:.75rem;">
+            {% for slot in availability %}
+            <div class="avail-slot">
+              <div class="checkbox-label" style="flex:1;display:flex;justify-content:space-between;align-items:center;">
+                <span class="avail-day">{{ slot.day_of_week }}</span>
+                <span class="avail-time">{{ fmt_time(slot.start_time) }} – {{ fmt_time(slot.end_time) }}</span>
+                <form method="post" action="{{ url_for('remove_availability_slot') }}" style="display:inline;">
+                  <input type="hidden" name="day_of_week" value="{{ slot.day_of_week }}">
+                  <input type="hidden" name="start_time" value="{{ fmt_time(slot.start_time) }}">
+                  <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                </form>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p style="font-size:.88rem;color:var(--muted);">No slots added yet.</p>
+          {% endif %}
+        </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

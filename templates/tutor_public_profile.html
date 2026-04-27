@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ tutor.first_name }} {{ tutor.last_name }} — TutorConnect{% endblock %}
+{% block content %}
+<div class="page">
+
+  <!-- Back link -->
+  <a href="{{ url_for('search_tutors') }}" class="btn btn-ghost btn-sm" style="margin-bottom:1.25rem;">
+    ← Back to search
+  </a>
+
+  <!-- Hero card -->
+  <div class="card" style="display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:start;margin-bottom:1.5rem;">
+
+    <!-- Avatar / photo -->
+    {% if tutor.profile_picture_url %}
+    <img src="{{ tutor.profile_picture_url }}" alt="{{ tutor.first_name }}"
+         style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid var(--border);">
+    {% else %}
+    <div class="avatar" style="width:96px;height:96px;font-size:2rem;">
+      {{ tutor.first_name[0] }}{{ tutor.last_name[0] }}
+    </div>
+    {% endif %}
+
+    <div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.5rem;">
+        <h2 style="margin:0;font-size:1.75rem;">{{ tutor.first_name }} {{ tutor.last_name }}</h2>
+        <span style="font-size:1.1rem;font-weight:700;color:var(--navy);">${{ '%.2f'|format(tutor.hourly_rate) }}/hr</span>
+      </div>
+
+      <!-- Stars + counts -->
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;">
+        <span class="stars" style="font-size:1.1rem;">{{ render_stars(tutor.avg_rating) }}</span>
+        <span style="font-weight:700;color:var(--navy);">{{ '%.1f'|format(tutor.avg_rating) }}</span>
+        <span style="color:var(--muted);font-size:.9rem;">
+          ({{ tutor.review_count }} review{{ 's' if tutor.review_count != 1 else '' }})
+          &nbsp;·&nbsp;
+          {{ tutor.session_count }} session{{ 's' if tutor.session_count != 1 else '' }} completed
+        </span>
+      </div>
+
+      <!-- Subjects -->
+      {% if subjects %}
+      <div class="tag-list" style="margin-bottom:.75rem;">
+        {% for sub in subjects %}
+        <span class="tag">{{ sub.subject_name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Bio -->
+      {% if tutor.bio %}
+      <p style="color:var(--text-sm);font-size:.95rem;line-height:1.65;max-width:600px;">{{ tutor.bio }}</p>
+      {% endif %}
+
+      {% if session.get('role') == 'student' %}
+      <div style="margin-top:1rem;">
+        <a href="{{ url_for('book_session', tutor_id=tutor.user_id) }}" class="btn btn-primary btn-lg">
+          Request a session
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 260px;gap:1.5rem;align-items:start;">
+
+    <!-- Reviews -->
+    <div>
+      <div class="section-header">
+        <h3>Reviews <span style="font-size:.85rem;font-weight:400;color:var(--muted);">({{ reviews|length }})</span></h3>
+      </div>
+
+      {% if reviews %}
+        {% for r in reviews %}
+        <div class="card" style="margin-bottom:.75rem;">
+          <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;">
+            <div class="avatar" style="width:36px;height:36px;font-size:.85rem;background:var(--navy-mid);">
+              {{ r.reviewer_first[0] }}{{ r.reviewer_last[0] }}
+            </div>
+            <div>
+              <div style="font-weight:600;font-size:.9rem;">{{ r.reviewer_first }} {{ r.reviewer_last }}</div>
+              <div style="font-size:.78rem;color:var(--muted);">{{ fmt_datetime(r.session_time) }}</div>
+            </div>
+            <div style="margin-left:auto;">
+              <span class="stars">{{ render_stars(r.rating) }}</span>
+              <span style="font-size:.82rem;color:var(--muted);margin-left:.25rem;">{{ r.rating }}/5</span>
+            </div>
+          </div>
+          {% if r.comment %}
+          <p style="font-size:.9rem;color:var(--text-sm);line-height:1.6;margin:0;">{{ r.comment }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state card">
+          <div class="empty-icon">💬</div>
+          <p>No reviews yet — be the first!</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Availability sidebar -->
+    <div>
+      <div class="card">
+        <h3 style="font-size:1rem;margin-bottom:.75rem;">Availability</h3>
+        {% if availability %}
+        <div class="avail-slots">
+          {% for slot in availability %}
+          <div class="avail-slot">
+            <span class="avail-day">{{ slot.day_of_week }}</span>
+            <span class="avail-time">{{ fmt_time(slot.start_time) }} – {{ fmt_time(slot.end_time) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p style="font-size:.85rem;color:var(--muted);">No slots set — tutor reviews all requests manually.</p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

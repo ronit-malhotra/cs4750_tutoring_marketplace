@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Leave a Review — TutorConnect{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <h2>Leave a Review</h2>
+    <p>Share your experience to help other students.</p>
+  </div>
+
+  <div class="form-card">
+    <form method="post">
+      <div class="form-group">
+        <label>Rating</label>
+        <div style="display:flex;gap:.5rem;margin-top:.25rem;" id="star-picker">
+          {% for i in range(1,6) %}
+          <label style="cursor:pointer;font-size:2rem;color:#ccc;transition:color .15s;" class="star-label" data-val="{{ i }}">
+            ★
+            <input type="radio" name="rating" value="{{ i }}" required style="display:none;">
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="comment">Comment</label>
+        <textarea id="comment" name="comment" rows="5"
+          placeholder="Describe your session — what did you find helpful?" required></textarea>
+      </div>
+      <button class="btn btn-primary btn-full btn-lg" type="submit">Submit Review</button>
+    </form>
+  </div>
+</div>
+
+<script>
+const labels = document.querySelectorAll('.star-label');
+labels.forEach((lbl, idx) => {
+  lbl.addEventListener('mouseenter', () => {
+    labels.forEach((l, i) => l.style.color = i <= idx ? '#f4a93e' : '#ccc');
+  });
+  lbl.addEventListener('click', () => {
+    lbl.querySelector('input').checked = true;
+    labels.forEach((l, i) => {
+      l.style.color = i <= idx ? '#f4a93e' : '#ccc';
+      l.dataset.selected = i <= idx ? '1' : '0';
+    });
+  });
+});
+document.getElementById('star-picker').addEventListener('mouseleave', () => {
+  const selected = [...labels].findIndex(l => l.dataset.selected === '1');
+  labels.forEach((l, i) => l.style.color = (selected >= 0 && i <= selected) ? '#f4a93e' : '#ccc');
+});
+</script>
+{% endblock %}

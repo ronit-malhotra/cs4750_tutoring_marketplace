@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Tutor Dashboard — TutorConnect{% endblock %}
+{% block content %}
+<div class="page">
+
+  <div class="page-header">
+    <h2>Tutor Dashboard</h2>
+    <p>Manage your session requests and track your history.</p>
+  </div>
+
+  {# Stats #}
+  {% set total     = sessions | length %}
+  {% set pending   = sessions | selectattr('status', 'equalto', 'requested') | list | length %}
+  {% set active    = sessions | selectattr('status', 'equalto', 'accepted') | list | length %}
+  {% set completed = sessions | selectattr('status', 'equalto', 'completed') | list | length %}
+  {% set unread    = notifications | rejectattr('is_read') | list | length %}
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-value">{{ pending }}</div>
+      <div class="stat-label">Pending requests</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ active }}</div>
+      <div class="stat-label">Accepted</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ completed }}</div>
+      <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ unread }}</div>
+      <div class="stat-label">Unread alerts</div>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <h3>Sessions</h3>
+    <div class="btn-group">
+      <a href="{{ url_for('tutor_profile') }}" class="btn btn-ghost btn-sm">Edit profile</a>
+      <a href="{{ url_for('export_sessions') }}" class="btn btn-accent btn-sm">Export CSV</a>
+    </div>
+  </div>
+
+  {% if sessions %}
+    {% for s in sessions %}
+    <div class="session-card">
+      <div class="session-meta">
+        <div class="session-title">{{ s.subject_name }} with {{ s.first_name }} {{ s.last_name }}</div>
+        <div class="session-detail">
+          🗓 {{ fmt_datetime(s.session_time) }} &nbsp;·&nbsp; ⏱ {{ s.duration }} min
+        </div>
+        <div style="margin-top:.35rem;">
+          <span class="status status-{{ s.status }}">{{ s.status }}</span>
+        </div>
+      </div>
+      <div class="btn-group">
+        {% if s.status == 'requested' %}
+        <form method="post" style="display:inline;">
+          <input type="hidden" name="session_id" value="{{ s.session_id }}">
+          <button name="action" value="accept" class="btn btn-success btn-sm" type="submit">Accept</button>
+          <button name="action" value="cancel" class="btn btn-danger btn-sm" type="submit"
+            onclick="return confirm('Reject this request?')">Reject</button>
+        </form>
+        {% elif s.status == 'accepted' %}
+        <form method="post" style="display:inline;">
+          <input type="hidden" name="session_id" value="{{ s.session_id }}">
+          <button name="action" value="complete" class="btn btn-primary btn-sm" type="submit">Mark complete</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state card">
+      <div class="empty-icon">📭</div>
+      <p>No sessions yet. Set up your <a href="{{ url_for('tutor_profile') }}">profile</a> so students can find you.</p>
+    </div>
+  {% endif %}
+
+  {# Notifications (reviews + cancellations) #}
+  <div class="divider"></div>
+  <div class="section-header">
+    <h3>Notifications
+      {% if unread > 0 %}
+      <span style="background:var(--blue);color:#fff;font-size:.7rem;padding:2px 7px;border-radius:99px;margin-left:.5rem;font-family:'DM Sans',sans-serif;">{{ unread }}</span>
+      {% endif %}
+    </h3>
+    {% if unread > 0 %}
+    <form method="post" action="{{ url_for('tutor_mark_all_read') }}">
+      <button class="btn btn-ghost btn-sm" type="submit">Mark all read</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if notifications %}
+    {% for n in notifications %}
+    <div class="notif {{ 'unread' if not n.is_read else '' }}">
+      <div class="notif-dot {{ '' if not n.is_read else 'read' }}"></div>
+      <div class="notif-body">
+        <div>{{ n.message }}</div>
+        <div class="notif-time">{{ fmt_datetime(n.created_at) }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">🔕</div>
+      <p>No notifications yet.</p>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

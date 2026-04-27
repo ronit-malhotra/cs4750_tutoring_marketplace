@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Find a Tutor — TutorConnect{% endblock %}
+{% block content %}
+<div class="page">
+
+  <div class="page-header">
+    <h2>Find a Tutor</h2>
+    <p>Browse tutors by subject and sort by rating or price.</p>
+  </div>
+
+  <form method="get" class="search-bar">
+    <div class="form-group">
+      <label>Subject</label>
+      <select name="subject">
+        <option value="">All subjects</option>
+        {% for sub in subjects %}
+        <option value="{{ sub.subject_name }}"
+          {% if selected_subject == sub.subject_name %}selected{% endif %}>
+          {{ sub.subject_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Sort by</label>
+      <select name="sort">
+        <option value="rating" {% if selected_sort == 'rating' %}selected{% endif %}>Best rating</option>
+        <option value="price"  {% if selected_sort == 'price'  %}selected{% endif %}>Lowest price</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" type="submit" style="align-self:flex-end;">Search</button>
+    {% if selected_subject %}
+    <a href="{{ url_for('search_tutors') }}" class="btn btn-ghost" style="align-self:flex-end;">Clear</a>
+    {% endif %}
+  </form>
+
+  {% if tutors %}
+  <p style="font-size:.88rem;color:var(--muted);margin-bottom:1rem;">
+    Showing {{ tutors | length }} tutor{{ 's' if tutors | length != 1 else '' }}
+    {% if selected_subject %}for <strong>{{ selected_subject }}</strong>{% endif %}
+  </p>
+  <div class="card-grid">
+    {% for t in tutors %}
+    <div class="tutor-card">
+      <div class="tutor-card-header">
+        {% if t.profile_picture_url %}
+        <img src="{{ t.profile_picture_url }}" alt="{{ t.first_name }}"
+             style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border);flex-shrink:0;">
+        {% else %}
+        <div class="avatar">{{ t.first_name[0] }}{{ t.last_name[0] }}</div>
+        {% endif %}
+        <div>
+          <div class="tutor-name">{{ t.first_name }} {{ t.last_name }}</div>
+          <div class="tutor-rate">${{ '%.2f'|format(t.hourly_rate) }}/hr</div>
+        </div>
+      </div>
+      <div>
+        <span class="stars">{{ render_stars(t.avg_rating) }}</span>
+        <span class="rating-num">{{ '%.1f'|format(t.avg_rating) }}</span>
+      </div>
+      {% if t.subjects %}
+      <div class="tag-list">
+        {% for subj in t.subjects.split(',') %}
+        <span class="tag">{{ subj.strip() }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if t.bio %}
+      <p style="font-size:.88rem;color:var(--text-sm);line-height:1.5;">
+        {{ t.bio[:110] }}{% if t.bio|length > 110 %}…{% endif %}
+      </p>
+      {% endif %}
+      <div class="btn-group">
+        <a href="{{ url_for('tutor_public_profile', tutor_id=t.tutor_id) }}" class="btn btn-ghost btn-sm">View profile</a>
+        <a href="{{ url_for('book_session', tutor_id=t.tutor_id) }}" class="btn btn-primary btn-sm">Book</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div class="empty-state card">
+      <div class="empty-icon">🔍</div>
+      <p>No tutors found{% if selected_subject %} for <strong>{{ selected_subject }}</strong>{% endif %}. Try a different filter.</p>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

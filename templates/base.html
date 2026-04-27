@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}TutorConnect{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+{% if session.get('user_id') %}
+<header class="topbar">
+  <a href="{{ url_for('dashboard') }}" class="topbar-brand">
+    <span class="brand-dot"></span> TutorConnect
+  </a>
+  <nav class="topbar-nav">
+    {% if session.get('role') == 'student' %}
+      <a href="{{ url_for('student_dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('search_tutors') }}">Find a Tutor</a>
+    {% elif session.get('role') == 'tutor' %}
+      <a href="{{ url_for('tutor_dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('tutor_profile') }}">My Profile</a>
+      <a href="{{ url_for('export_sessions') }}">Export CSV</a>
+    {% elif session.get('role') == 'admin' %}
+      <a href="{{ url_for('admin_dashboard') }}">Admin Panel</a>
+    {% endif %}
+  </nav>
+  <div class="topbar-nav">
+    <span class="topbar-user">
+      {{ session.get('name') }}
+      <span class="role-badge {{ session.get('role') }}">{{ session.get('role') }}</span>
+    </span>
+    <a href="{{ url_for('logout') }}" class="topbar-logout">Logout</a>
+  </div>
+</header>
+{% endif %}
+
+<main{% if not session.get('user_id') %} class="auth-page"{% endif %}>
+  {% with messages = get_flashed_messages() %}
+    {% if messages and session.get('user_id') %}
+    <div class="page" style="padding-bottom:0; padding-top:1rem;">
+      <ul class="flash-list">
+        {% for msg in messages %}<li>{{ msg }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% elif messages %}
+    <div style="position:fixed;top:1rem;right:1rem;z-index:999;max-width:360px;">
+      <ul class="flash-list">
+        {% for msg in messages %}<li>{{ msg }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Request Session with {{ tutor.first_name }} {{ tutor.last_name }}</h2>
+<form method="post" class="card">
+  <label>Date & time <input type="datetime-local" name="session_time" required></label>
+  <label>Duration (minutes) <input type="number" min="30" step="30" name="duration" required></label>
+  <label>Subject
+    <select name="subject_id" required>
+      {% for sub in subjects %}
+      <option value="{{ sub.subject_id }}">{{ sub.subject_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Send Request</button>
+</form>
+<section class="card">
+  <h3>Tutor Availability</h3>
+  {% for slot in availability %}
+  <p>{{ slot.day_of_week }}: {{ fmt_time(slot.start_time) }} - {{ fmt_time(slot.end_time) }}</p>
+  {% else %}
+  <p>No availability slots set. Tutor can still manually accept requests.</p>
+  {% endfor %}
+</section>
+{% endblock %}
