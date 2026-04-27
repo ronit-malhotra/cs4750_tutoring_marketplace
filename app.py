@@ -65,11 +65,27 @@ def is_within_availability(conn, tutor_id, requested_dt):
     if not slots:
         return True
     day_name     = DAY_NAMES[requested_dt.weekday()]
-    request_time = requested_dt.strftime("%H:%M:%S")
+    request_seconds = requested_dt.hour * 3600 + requested_dt.minute * 60 + requested_dt.second
+
+    def to_seconds(value):
+        if isinstance(value, timedelta):
+            return int(value.total_seconds())
+        if hasattr(value, "hour") and hasattr(value, "minute"):
+            return value.hour * 3600 + value.minute * 60 + getattr(value, "second", 0)
+        text = str(value).strip()
+        # Accept HH:MM or HH:MM:SS
+        parts = text.split(":")
+        if len(parts) >= 2:
+            hours = int(parts[0])
+            minutes = int(parts[1])
+            seconds = int(parts[2]) if len(parts) >= 3 else 0
+            return hours * 3600 + minutes * 60 + seconds
+        return 0
+
     for slot in slots:
-        start = str(slot["start_time"]) if not isinstance(slot["start_time"], str) else slot["start_time"]
-        end   = str(slot["end_time"])   if not isinstance(slot["end_time"],   str) else slot["end_time"]
-        if slot["day_of_week"] == day_name and start <= request_time <= end:
+        start_seconds = to_seconds(slot["start_time"])
+        end_seconds = to_seconds(slot["end_time"])
+        if slot["day_of_week"] == day_name and start_seconds <= request_seconds <= end_seconds:
             return True
     return False
 
@@ -608,10 +624,21 @@ def remove_availability_slot():
         flash("Invalid availability slot selected.")
         return redirect(url_for("tutor_profile"))
 
+    start_value = str(start).strip()
+    # Accept both "HH:MM[:SS]" and display-formatted "h:mm AM/PM" values.
+    if "AM" in start_value.upper() or "PM" in start_value.upper():
+        try:
+            start_value = datetime.strptime(start_value, "%I:%M %p").strftime("%H:%M:%S")
+        except ValueError:
+            flash("Invalid availability slot selected.")
+            return redirect(url_for("tutor_profile"))
+    elif len(start_value) == 5:
+        start_value = f"{start_value}:00"
+
     with managed_connection() as conn:
         conn.execute(
             "DELETE FROM Availability WHERE tutor_id = %s AND day_of_week = %s AND start_time = %s",
-            (session["user_id"], day, start),
+            (session["user_id"], day, start_value),
         )
     flash("Availability slot removed.")
     return redirect(url_for("tutor_profile"))

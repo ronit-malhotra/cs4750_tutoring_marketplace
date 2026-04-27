@@ -100,7 +100,7 @@
                 <span class="avail-time">{{ fmt_time(slot.start_time) }} – {{ fmt_time(slot.end_time) }}</span>
                 <form method="post" action="{{ url_for('remove_availability_slot') }}" style="display:inline;">
                   <input type="hidden" name="day_of_week" value="{{ slot.day_of_week }}">
-                  <input type="hidden" name="start_time" value="{{ fmt_time(slot.start_time) }}">
+                  <input type="hidden" name="start_time" value="{{ slot.start_time }}">
                   <button type="submit" class="btn btn-danger btn-sm">Remove</button>
                 </form>
               </div>
