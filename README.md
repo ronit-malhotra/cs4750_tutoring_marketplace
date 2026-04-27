@@ -7,100 +7,94 @@ TutorConnect is a web-based peer-to-peer tutoring marketplace backed by a MySQL 
 
 ---
 
+## Live Deployment (GCP)
+**App URL:** https://tutoring-app-1041453566779.us-central1.run.app
+
+---
+
 ## Tech Stack
-- **Backend:** Python 3 + Flask
-- **Database:** MySQL 8 via XAMPP (local)
+- **Backend:** Python 3.12 + Flask
+- **Database:** MySQL 8
 - **Frontend:** Jinja2 HTML templates + vanilla CSS
-- **Auth:** Werkzeug password hashing (bcrypt)
+- **Auth:** Werkzeug password hashing (scrypt)
 
 ---
 
 ## Prerequisites
-- [XAMPP](https://www.apachefriends.org/) with MySQL running
 - Python 3.9 or higher
-- pip
+- MySQL 8 running locally
 
 ---
 
-## Setup Instructions
+## Local Setup
 
 ### 1. Clone the repository
 ```bash
 git clone <your-github-url>
-cd tutoring_app
+cd cs4750_tutoring_marketplace
 ```
 
-### 2. Install Python dependencies
+### 2. Create and activate a virtual environment
 ```bash
-pip install flask pymysql werkzeug
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-### 3. Start XAMPP MySQL
-Open the XAMPP Control Panel and click **Start** next to MySQL.
+### 3. Install dependencies
+```bash
+pip install -r requirements.txt
+```
 
-### 4. Create the database and tables
-Open your browser and go to `http://localhost/phpmyadmin`.
-
-In the SQL tab, run:
+### 4. Create the database
+```bash
+mysql -u root -p
+```
 ```sql
 CREATE DATABASE IF NOT EXISTS tutoring_db
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE tutoring_db;
 ```
+Then paste and run the contents of `schema_mysql.sql`.
 
-Then paste and run the contents of `schema_mysql.sql` to create all 10 tables and the trigger.
-
-### 5. Set up database security (required for rubric)
-Still in phpMyAdmin (logged in as root), paste and run the contents of `security_mysql.sql`.
-This creates the restricted `tutoring_app_user` account the app connects as.
-
-### 6. Configure environment variables
-Copy `.env.example` to `.env` and fill in your password:
+### 5. Set up database security
 ```bash
-cp .env.example .env
+mysql -u root -p < security_sql.sql
 ```
 
-Edit `.env`:
-```
-FLASK_SECRET_KEY=any-long-random-string
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=tutoring_app_user
-DB_PASSWORD=AppUser!2025
-DB_NAME=tutoring_db
-```
-
-Load the environment variables before running:
-
-**Mac/Linux:**
+### 6. Set environment variables
 ```bash
-export $(cat .env | xargs)
+export FLASK_SECRET_KEY=any-long-random-string
+export DB_HOST=127.0.0.1
+export DB_PORT=3306
+export DB_USER=tutoring_dev_user
+export DB_PASSWORD='DevUser!2025'
+export DB_NAME=tutoring_db
 ```
 
-**Windows (Command Prompt):**
-```cmd
-for /f "tokens=*" %i in (.env) do set %i
+### 7. (Optional) Load dummy data
+```bash
+mysql -u root -p tutoring_db < insert_data.sql
 ```
 
-### 7. Run the app
+### 8. Run the app
 ```bash
 python app.py
 ```
-
 Open your browser at `http://127.0.0.1:5000`.
 
 ---
 
-## Default Admin Account
-On first run, `bootstrap_database()` seeds an admin user:
-- **Email:** admin@school.edu
-- **Password:** AdminPass123!
+## Default Accounts
 
-Use this to log in to the Admin Dashboard.
+| Role | Email | Password |
+|---|---|---|
+| Admin | admin@school.edu | AdminPass123! |
+| Tutor (demo) | caleb.tutor@example.com | Password123! |
+| Student (demo) | joe.student@example.com | Password123! |
 
 ---
 
-## Database Tables Used (all 10)
+## Database Tables Used
 | Table | Purpose |
 |---|---|
 | Users | All platform users — students, tutors, admins |
@@ -123,5 +117,5 @@ Use this to log in to the Admin Dashboard.
 ---
 
 ## Database Security
-- **DB level:** `tutoring_app_user` has only `SELECT, INSERT, UPDATE, DELETE` — no DDL. `tutoring_dev_user` has full privileges for schema changes. See `security_mysql.sql`.
-- **App level:** Passwords hashed with Werkzeug (bcrypt). `login_required()` decorator blocks unauthenticated access. Role-based routing sends students, tutors, and admins to separate dashboards. Prepared statements (`%s` placeholders via PyMySQL) prevent SQL injection.
+- **DB level:** `tutoring_app_user` has only `SELECT, INSERT, UPDATE, DELETE` — no DDL. `tutoring_dev_user` has full privileges for schema changes. See `security_sql.sql`.
+- **App level:** Passwords hashed with Werkzeug (scrypt). `login_required()` decorator blocks unauthenticated access. Role-based routing sends students, tutors, and admins to separate dashboards. Prepared statements (`%s` placeholders via PyMySQL) prevent SQL injection.
